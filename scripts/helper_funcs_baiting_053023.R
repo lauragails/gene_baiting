@@ -118,7 +118,7 @@ calc_qval=function(universe,FDR_sig,bait_list,n_permutation,thresh){
 read_list=function(list_file,species="mouse",to_remove=NA,header=FALSE){
     vec=read.table(list_file,header=header,sep="\t") # Laura only works with tabs, and ASC list needs that
     vec=unlist(vec) 
-    vec=wrap_symbol_synonyms(vec,species)
+    #vec=wrap_symbol_synonyms(vec,species) # just using mouse input 
     
     # Read genes to remove, if needed 
     remove=c()
@@ -138,13 +138,13 @@ result=c()
 for (my_list in 1:ncol(baits)){
     # Process gene list 
     l=baits[,my_list]
-    l=wrap_symbol_synonyms(l,species) 
+    #l=wrap_symbol_synonyms(l,species) 
     l=unique(setdiff(l,NA))
     l_prev=l 
 
     # Make sure all lists are in the universe. Note to_remove is *only* from baiting  
     l=setdiff(l,to_remove)
-    Fu_list=intersect(Fu_list,universe) 
+    Fu_list=intersect(unlist(Fu_list),unlist(universe)) 
 
     # Get names 
     bname=colnames(baits)[my_list]
@@ -175,4 +175,36 @@ for (method in p.adjust.methods){
         result[,c(method)]=p.adjust(result$pval,method=method)
 }
 return(result)
+}
+
+basic_pval_plot=function(df,alpha=0.05,ntests=14,my_order=c("Anks1b","Syngap1","Shank2","Shank3","Nckap1","Nbea","Ctnnb1","Lrrc4c","Iqsec2","Arhgef9","Ank3","Scn2a","Scn8a","Hnrnpu")){
+    # example data
+    # ordered_df=df[order(df$pval,decreasing=TRUE),]
+
+    # Table has "bait" in it. Fix my_order kludgily 
+    my_order=gsub(".Bait","",my_order)
+    my_order=paste0(my_order,".Bait")
+    my_order=rev(unlist(as.character(my_order)))
+    rownames(df)=df$bait_list 
+    #ordered_df=df[order(df$bait_list==my_order),]
+    ordered_df=df[my_order,]
+    bonf_thresh=-log10(alpha/ntests) 
+    baits=gsub(".Bait","",ordered_df$bait_list)
+
+    # Make prettier title. Can add as many rows as necessary, strings should be unique 
+    ln=as.character(unlist(unique(df$gene_list)))
+    main_sub="Overlap with Bait Lists"
+    if (ln=="Satterstrom_published_102_FDR_lt_0.1"){
+	main_sub="Overlap with Satterstrom et al, 2020"
+    }
+    if (ln=="Fu_ASD_published_mouse_FDR_lt_0.05"){
+	main_sub="Overlap with Fu et al, 2022" 
+    }
+    # create barplot
+    #plot.new()
+    barplot(-log10(ordered_df$pval), horiz = TRUE, las = 1, xlab = expression(-log10(P[hypergeometric])), ylab="",names.arg = baits, main = main_sub,col="deepskyblue3",cex.names=1.3)
+
+    # add vertical lines at different thresholds
+    abline(v = bonf_thresh, col = "firebrick1", lwd = 2)
+    abline(v = -log10(alpha), col = "chocolate4", lwd = 2, lty="dashed")
 }
